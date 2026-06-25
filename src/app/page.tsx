@@ -1,10 +1,14 @@
 "use client";
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo } from "react";
 import { Search, MapPin, Compass, Clock, AlertCircle, ShoppingBag, Store, Map } from "lucide-react";
-import { umkmList } from "@/data/umkm";
+import { umkmList, Umkm } from "@/data/umkm";
 import UmkmCard from "@/components/UmkmCard";
 import MapWrapper from "@/components/MapWrapper";
 import { calculateDistance, isUmkmOpen } from "@/utils/umkmUtils";
+
+interface UmkmWithDistance extends Umkm {
+  distance?: number;
+}
 
 export default function Home() {
   const [searchQuery, setSearchQuery] = useState("");
@@ -66,7 +70,7 @@ export default function Home() {
   // Filter & Sort UMKM
   const processedUmkm = useMemo(() => {
     // 1. Filter list based on category, search queries, and open status
-    let list = umkmList.filter((umkm) => {
+    const list = umkmList.filter((umkm) => {
       const matchCategory = selectedCategory === "Semua" || umkm.kategori === selectedCategory;
       
       const searchLower = searchQuery.toLowerCase();
@@ -97,7 +101,7 @@ export default function Home() {
         return { ...umkm, distance };
       }
       return umkm;
-    }) as any[];
+    }) as UmkmWithDistance[];
 
     // 3. Sort by distance if toggled
     if (sortByDistance && userLocation) {

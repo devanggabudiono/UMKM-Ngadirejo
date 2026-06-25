@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/set-state-in-effect */
 "use client";
 import { useEffect, useState } from "react";
 import { Clock } from "lucide-react";
@@ -8,15 +9,15 @@ interface OpenStatusBadgeProps {
 }
 
 export default function OpenStatusBadge({ jamOperasional }: OpenStatusBadgeProps) {
-  const [isOpen, setIsOpen] = useState(false);
-  const [currentDay, setCurrentDay] = useState("");
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    // Jalankan di Client Side
-    setIsOpen(isUmkmOpen(jamOperasional));
-    const days = ["minggu", "senin", "selasa", "rabu", "kamis", "jumat", "sabtu"];
-    setCurrentDay(days[new Date().getDay()]);
-  }, [jamOperasional]);
+    setMounted(true);
+  }, []);
+
+  const isOpen = mounted ? isUmkmOpen(jamOperasional) : false;
+  const days = ["minggu", "senin", "selasa", "rabu", "kamis", "jumat", "sabtu"];
+  const currentDay = mounted ? days[new Date().getDay()] : "";
 
   return (
     <div className="flex gap-4 items-start flex-col w-full">

@@ -1,4 +1,26 @@
-export const umkmList = [
+import { JamOperasional } from "@/utils/umkmUtils";
+
+export interface Umkm {
+  id: number;
+  slug: string;
+  nama: string;
+  pemilik: string;
+  kategori: string;
+  deskripsiSingkat: string;
+  deskripsiLengkap: string;
+  produk: string[];
+  tags: string[];
+  whatsapp: string;
+  alamat: string;
+  jamOperasional: JamOperasional;
+  latitude: number;
+  longitude: number;
+  googleMapsUrl: string;
+  fotoUtama: string;
+  galeri: string[];
+}
+
+export const umkmList: Umkm[] = [
   {
     id: 1,
     slug: "warung-bu-siti",
@@ -53,9 +75,10 @@ export const umkmList = [
     latitude: -8.135000,
     longitude: 112.528000,
     googleMapsUrl: "https://maps.google.com/?q=-8.135,112.528",
-    fotoUtama: "https://images.unsplash.com/photo-1599256621730-535171e28e50?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80",
+    fotoUtama: "https://images.unsplash.com/photo-1568772585407-9361f9bf3a87?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80",
     galeri: [
-      "https://images.unsplash.com/photo-1599256621730-535171e28e50?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80"
+      "https://images.unsplash.com/photo-1568772585407-9361f9bf3a87?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80",
+      "https://images.unsplash.com/photo-1616422285623-13ff0162193c?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80"
     ]
   },
   {

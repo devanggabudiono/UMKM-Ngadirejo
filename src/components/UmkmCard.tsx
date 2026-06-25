@@ -1,4 +1,6 @@
+/* eslint-disable react-hooks/set-state-in-effect */
 "use client";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { MessageCircle, MapPin } from "lucide-react";
@@ -36,10 +38,16 @@ export default function UmkmCard({
     return formatted;
   };
 
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   const waNumber = formatWhatsApp(whatsapp);
   const waUrl = `https://wa.me/${waNumber}?text=Halo%20${encodeURIComponent(nama)},%20saya%20melihat%20usaha%20Anda%20di%20Website%20UMKM%20Desa%20Ngadirejo.`;
 
-  const isOpen = jamOperasional ? isUmkmOpen(jamOperasional) : false;
+  const isOpen = mounted && jamOperasional ? isUmkmOpen(jamOperasional) : false;
 
   // Fallback image if fotoUtama is empty/placeholder
   const defaultImage = "https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=800&q=80"; // Warm market display
@@ -67,7 +75,7 @@ export default function UmkmCard({
         </div>
 
         {/* Status Buka/Tutup Badge */}
-        {jamOperasional && (
+        {mounted && jamOperasional && (
           <div className="absolute top-4 right-4">
             {isOpen ? (
               <span className="bg-emerald-500/90 backdrop-blur-sm text-white text-[10px] sm:text-xs font-bold px-3 py-1.5 rounded-full shadow-sm flex items-center gap-1.5 border border-emerald-400/20">

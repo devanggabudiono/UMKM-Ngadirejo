@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { Store, MapPin, Phone, Mail } from "lucide-react";
+import Image from "next/image";
+import { MapPin, Phone, Mail } from "lucide-react";
 
 export default function Footer() {
   return (
@@ -9,8 +10,14 @@ export default function Footer() {
           {/* Brand & Description */}
           <div className="space-y-4">
             <Link href="/" className="flex items-center gap-2.5 group w-fit">
-              <div className="bg-emerald-600 text-white p-2 rounded-xl">
-                <Store className="h-5.5 w-5.5" />
+              <div className="relative h-10 w-10 overflow-hidden rounded-xl border border-emerald-800/30 bg-white shadow-sm group-hover:scale-105 transition-all">
+                <Image
+                  src="/logo-umkm.png"
+                  alt="Logo UMKM Ngadirejo"
+                  fill
+                  sizes="40px"
+                  className="object-contain p-1"
+                />
               </div>
               <span className="font-extrabold text-xl tracking-tight text-white">
                 UMKM <span className="text-emerald-400 font-semibold">Ngadirejo</span>

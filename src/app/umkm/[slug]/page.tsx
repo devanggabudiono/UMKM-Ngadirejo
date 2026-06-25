@@ -5,6 +5,7 @@ import Link from "next/link";
 import { ArrowLeft, MapPin, MessageCircle, User, Tag, ShoppingBag, Info, ExternalLink } from "lucide-react";
 import MapWrapper from "@/components/MapWrapper";
 import OpenStatusBadge from "@/components/OpenStatusBadge";
+import ShareButton from "@/components/ShareButton";
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -99,13 +100,29 @@ export default async function UmkmDetail({ params }: PageProps) {
                   <ShoppingBag className="w-5 h-5 text-emerald-600" />
                   Produk & Layanan
                 </h3>
+                <p className="text-xs text-slate-500 mb-3 italic">Klik produk di bawah untuk menanyakan stok atau memesan via WhatsApp:</p>
                 <ul className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {umkm.produk.map((prod, idx) => (
-                    <li key={idx} className="flex items-center gap-3 text-slate-700 bg-slate-50 border border-slate-100 p-3.5 rounded-xl text-sm font-semibold">
-                      <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0"></span>
-                      <span>{prod}</span>
-                    </li>
-                  ))}
+                  {umkm.produk.map((prod, idx) => {
+                    const prodWaUrl = `https://wa.me/${waNumber}?text=Halo%20${encodeURIComponent(umkm.nama)},%20saya%20tertarik%20untuk%20memesan/tanya%20tentang%20produk%20*${encodeURIComponent(prod)}*%20yang%20saya%20melihat%20di%20Website%20UMKM%20Desa%20Ngadirejo.`;
+                    return (
+                      <li key={idx}>
+                        <a 
+                          href={prodWaUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center justify-between gap-3 text-slate-700 bg-slate-50 border border-slate-100 hover:border-emerald-250 hover:bg-emerald-50/20 p-3.5 rounded-xl text-sm font-semibold transition-all group/item hover:-translate-y-0.5 hover:shadow-sm"
+                        >
+                          <div className="flex items-center gap-3 overflow-hidden">
+                            <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0 group-hover/item:scale-125 transition-transform"></span>
+                            <span className="truncate">{prod}</span>
+                          </div>
+                          <span className="text-emerald-600 text-xs font-bold opacity-0 group-hover/item:opacity-100 transition-opacity shrink-0 flex items-center gap-1">
+                            Pesan <MessageCircle className="w-3.5 h-3.5" />
+                          </span>
+                        </a>
+                      </li>
+                    );
+                  })}
                 </ul>
               </div>
               
@@ -169,20 +186,23 @@ export default async function UmkmDetail({ params }: PageProps) {
 
                 {/* Weekly Operational Hours */}
                 <div className="pt-4 border-t border-slate-100">
-                  <OpenStatusBadge jamOperasional={umkm.jamOperasional as any} />
+                  <OpenStatusBadge jamOperasional={umkm.jamOperasional} />
                 </div>
               </div>
               
-              {/* Large WhatsApp CTA Button */}
-              <a
-                href={waUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center justify-center gap-2 bg-[#25D366] hover:bg-[#20bd5a] text-white w-full py-4 px-5 rounded-2xl font-bold text-sm sm:text-base transition-all shadow-md shadow-emerald-200/50 hover:shadow-lg hover:-translate-y-0.5"
-              >
-                <MessageCircle className="w-5.5 h-5.5 shrink-0" />
-                Hubungi via WhatsApp
-              </a>
+              {/* Large WhatsApp CTA Button & Share Button */}
+              <div className="space-y-3">
+                <a
+                  href={waUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center justify-center gap-2 bg-[#25D366] hover:bg-[#20bd5a] text-white w-full py-4 px-5 rounded-2xl font-bold text-sm sm:text-base transition-all shadow-md shadow-emerald-200/50 hover:shadow-lg hover:-translate-y-0.5 cursor-pointer"
+                >
+                  <MessageCircle className="w-5.5 h-5.5 shrink-0" />
+                  Hubungi via WhatsApp
+                </a>
+                <ShareButton />
+              </div>
             </div>
 
             {/* Map Mini-Widget */}

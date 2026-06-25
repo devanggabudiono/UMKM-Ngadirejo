@@ -32,7 +32,7 @@ export default function TentangPage() {
           </div>
           <div className="space-y-4 text-slate-600 leading-relaxed text-sm sm:text-base">
             <p>
-              Website <strong>"UMKM Desa Ngadirejo"</strong> merupakan salah satu langkah awal digitalisasi daerah yang dikembangkan untuk memperluas jangkauan promosi dan mempermudah pemasaran produk-produk lokal kuliner, sandang, sembako, pertanian, kerajinan, hingga jasa yang dikelola oleh masyarakat Desa Ngadirejo, Kecamatan Kromengan, Kabupaten Malang.
+              Website <strong>&quot;UMKM Desa Ngadirejo&quot;</strong> merupakan salah satu langkah awal digitalisasi daerah yang dikembangkan untuk memperluas jangkauan promosi dan mempermudah pemasaran produk-produk lokal kuliner, sandang, sembako, pertanian, kerajinan, hingga jasa yang dikelola oleh masyarakat Desa Ngadirejo, Kecamatan Kromengan, Kabupaten Malang.
             </p>
             <p>
               Melalui platform satu pintu ini, diharapkan terjadi percepatan adaptasi teknologi informasi oleh pelaku usaha mikro. Kami percaya bahwa setiap usaha lokal memiliki keunggulan tersendiri yang mampu berkembang pesat jika diberikan wadah promosi digital yang representatif, modern, dan mudah diakses siapa saja.

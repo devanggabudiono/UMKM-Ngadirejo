@@ -1,8 +1,9 @@
 "use client";
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
-import { Menu, X, Store } from "lucide-react";
+import { Menu, X } from "lucide-react";
 
 export default function Navbar() {
   const [isOpen, setIsOpen] = useState(false);
@@ -31,13 +32,6 @@ export default function Navbar() {
     { name: "Kontak", path: "/kontak" },
   ];
 
-  // Helper function to check if a link is active
-  const isActive = (path: string) => {
-    if (path === "/") {
-      return pathname === "/";
-    }
-    return pathname + (typeof window !== "undefined" ? window.location.hash : "") === path;
-  };
 
   return (
     <nav
@@ -51,8 +45,14 @@ export default function Navbar() {
         <div className="flex items-center justify-between h-16">
           <div className="flex items-center">
             <Link href="/" className="flex items-center gap-2.5 group">
-              <div className="bg-emerald-600 text-white p-2 rounded-xl shadow-md shadow-emerald-200 group-hover:bg-emerald-700 transition-colors">
-                <Store className="h-5.5 w-5.5" />
+              <div className="relative h-10 w-10 overflow-hidden rounded-xl border border-emerald-100/50 bg-white shadow-md shadow-emerald-100/40 group-hover:scale-105 transition-all">
+                <Image
+                  src="/logo-umkm.png"
+                  alt="Logo UMKM Ngadirejo"
+                  fill
+                  sizes="40px"
+                  className="object-contain p-1"
+                />
               </div>
               <span className="font-extrabold text-xl tracking-tight text-slate-900 group-hover:text-emerald-700 transition-colors">
                 UMKM <span className="text-emerald-600 font-semibold">Ngadirejo</span>
