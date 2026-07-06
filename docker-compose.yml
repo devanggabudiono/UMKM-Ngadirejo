@@ -1,0 +1,39 @@
+# =============================================
+# UMKM Ngadirejo — Docker Compose
+# MySQL 8.0 development database
+# =============================================
+# Usage:
+#   docker compose up -d        # Start MySQL
+#   docker compose down         # Stop MySQL
+#   docker compose logs -f db   # View logs
+# =============================================
+
+services:
+  db:
+    image: mysql:8.0
+    container_name: umkm-mysql
+    restart: unless-stopped
+    ports:
+      - "3306:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: umkm_root_2026
+      MYSQL_DATABASE: umkm_ngadirejo
+      MYSQL_USER: umkm_app
+      MYSQL_PASSWORD: Umkm_Ng4d1r3j0_2026
+    volumes:
+      - umkm_mysql_data:/var/lib/mysql
+      - ./src/lib/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+    command: >
+      --default-authentication-plugin=mysql_native_password
+      --character-set-server=utf8mb4
+      --collation-server=utf8mb4_unicode_ci
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-pumkm_root_2026"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+volumes:
+  umkm_mysql_data:
+    driver: local

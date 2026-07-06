@@ -2,7 +2,8 @@
 "use client";
 import { useEffect, useState } from "react";
 import { Clock } from "lucide-react";
-import { isUmkmOpen, JamOperasional } from "@/utils/umkmUtils";
+import { isUmkmOpen } from "@/utils/umkmUtils";
+import type { JamOperasional } from "@/types/umkm";
 
 interface OpenStatusBadgeProps {
   jamOperasional: JamOperasional;

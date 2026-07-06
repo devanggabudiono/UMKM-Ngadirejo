@@ -1,18 +1,7 @@
-export interface JamHarian {
-  buka: string;
-  tutup: string;
-  libur: boolean;
-}
+import type { JamOperasional } from "@/types/umkm";
 
-export interface JamOperasional {
-  senin: JamHarian;
-  selasa: JamHarian;
-  rabu: JamHarian;
-  kamis: JamHarian;
-  jumat: JamHarian;
-  sabtu: JamHarian;
-  minggu: JamHarian;
-}
+// Re-export types for backward compatibility
+export type { JamHarian, JamOperasional } from "@/types/umkm";
 
 /**
  * Menghitung jarak antara dua titik koordinat menggunakan rumus Haversine
@@ -58,7 +47,7 @@ export function isUmkmOpen(jamOperasional?: JamOperasional): boolean {
 /**
  * Memformat jam operasional hari tertentu menjadi string yang ramah dibaca
  */
-export function formatJamHarian(harian: JamHarian): string {
+export function formatJamHarian(harian: { buka: string; tutup: string; libur: boolean }): string {
   if (harian.libur) return "Tutup/Libur";
   return `${harian.buka} - ${harian.tutup}`;
 }

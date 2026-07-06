@@ -4,7 +4,8 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { MessageCircle, MapPin } from "lucide-react";
-import { isUmkmOpen, JamOperasional } from "@/utils/umkmUtils";
+import { isUmkmOpen } from "@/utils/umkmUtils";
+import type { JamOperasional } from "@/types/umkm";
 
 interface UmkmCardProps {
   slug: string;
@@ -44,27 +45,36 @@ export default function UmkmCard({
     setMounted(true);
   }, []);
 
-  const waNumber = formatWhatsApp(whatsapp);
-  const waUrl = `https://wa.me/${waNumber}?text=Halo%20${encodeURIComponent(nama)},%20saya%20melihat%20usaha%20Anda%20di%20Website%20UMKM%20Desa%20Ngadirejo.`;
+  const waNumber = whatsapp ? formatWhatsApp(whatsapp) : "";
+  const waUrl = waNumber
+    ? `https://wa.me/${waNumber}?text=Halo%20${encodeURIComponent(nama)},%20saya%20melihat%20usaha%20Anda%20di%20Website%20UMKM%20Desa%20Ngadirejo.`
+    : "";
 
   const isOpen = mounted && jamOperasional ? isUmkmOpen(jamOperasional) : false;
 
-  // Fallback image if fotoUtama is empty/placeholder
-  const defaultImage = "https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=800&q=80"; // Warm market display
-  const imageSrc = fotoUtama || defaultImage;
+  // Fallback image
+  const defaultImage = "/uploads/umkm/default-cover.webp";
+  const imageSrc = fotoUtama && fotoUtama !== defaultImage ? fotoUtama : defaultImage;
+  const hasImage = fotoUtama && fotoUtama !== defaultImage;
 
   return (
     <div className="bg-white rounded-3xl shadow-sm hover:shadow-xl hover:-translate-y-1.5 transition-all duration-300 overflow-hidden border border-slate-100 flex flex-col h-full group">
       {/* Thumbnail Area */}
-      <div className="relative h-52 w-full overflow-hidden bg-slate-100">
-        <Image
-          src={imageSrc}
-          alt={nama}
-          fill
-          className="object-cover transition-transform duration-700 group-hover:scale-105"
-          sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 25vw"
-          priority={false}
-        />
+      <div className="relative h-52 w-full overflow-hidden bg-gradient-to-br from-emerald-100 to-emerald-200">
+        {hasImage ? (
+          <Image
+            src={imageSrc}
+            alt={nama}
+            fill
+            className="object-cover transition-transform duration-700 group-hover:scale-105"
+            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 25vw"
+            priority={false}
+          />
+        ) : (
+          <div className="absolute inset-0 flex items-center justify-center">
+            <span className="text-4xl font-black text-emerald-600/30">{nama.charAt(0)}</span>
+          </div>
+        )}
         <div className="absolute inset-0 bg-gradient-to-t from-slate-950/20 via-transparent to-transparent"></div>
         
         {/* Category Badge */}
@@ -134,15 +144,22 @@ export default function UmkmCard({
           >
             Lihat Detail
           </Link>
-          <a
-            href={waUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center justify-center gap-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs font-bold py-3 px-4 rounded-xl transition-all border border-emerald-100"
-          >
-            <MessageCircle className="w-4 h-4" />
-            <span>WhatsApp</span>
-          </a>
+          {waUrl ? (
+            <a
+              href={waUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center justify-center gap-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs font-bold py-3 px-4 rounded-xl transition-all border border-emerald-100"
+            >
+              <MessageCircle className="w-4 h-4" />
+              <span>WhatsApp</span>
+            </a>
+          ) : (
+            <span className="flex items-center justify-center gap-1.5 bg-slate-50 text-slate-400 text-xs font-bold py-3 px-4 rounded-xl border border-slate-100 cursor-not-allowed">
+              <MessageCircle className="w-4 h-4" />
+              <span>N/A</span>
+            </span>
+          )}
         </div>
       </div>
     </div>

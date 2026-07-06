@@ -1,9 +1,17 @@
 "use client";
 import dynamic from "next/dynamic";
-import { umkmList } from "@/data/umkm";
+
+interface MapMarker {
+  id: number;
+  slug: string;
+  nama: string;
+  kategori: string;
+  latitude: number;
+  longitude: number;
+}
 
 interface MapWrapperProps {
-  markers?: typeof umkmList;
+  markers?: MapMarker[];
   center?: [number, number];
   zoom?: number;
   height?: string;
