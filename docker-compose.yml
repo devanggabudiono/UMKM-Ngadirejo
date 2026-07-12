@@ -1,39 +1,38 @@
 # =============================================
 # UMKM Ngadirejo — Docker Compose
-# MySQL 8.0 development database
+# PostgreSQL 16 development database
 # =============================================
 # Usage:
-#   docker compose up -d        # Start MySQL
-#   docker compose down         # Stop MySQL
+#   docker compose up -d        # Start PostgreSQL
+#   docker compose down         # Stop PostgreSQL
 #   docker compose logs -f db   # View logs
+#
+# After starting:
+#   npx prisma db push          # Apply schema
+#   npx prisma db seed          # Seed data
+#   npx prisma studio           # Open database GUI
 # =============================================
 
 services:
   db:
-    image: mysql:8.0
-    container_name: umkm-mysql
+    image: postgres:16-alpine
+    container_name: umkm-postgres
     restart: unless-stopped
     ports:
-      - "3306:3306"
+      - "5433:5432"
     environment:
-      MYSQL_ROOT_PASSWORD: umkm_root_2026
-      MYSQL_DATABASE: umkm_ngadirejo
-      MYSQL_USER: umkm_app
-      MYSQL_PASSWORD: Umkm_Ng4d1r3j0_2026
+      POSTGRES_DB: umkm_ngadirejo
+      POSTGRES_USER: umkm_app
+      POSTGRES_PASSWORD: Umkm_Ng4d1r3j0_2026
     volumes:
-      - umkm_mysql_data:/var/lib/mysql
-      - ./src/lib/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
-    command: >
-      --default-authentication-plugin=mysql_native_password
-      --character-set-server=utf8mb4
-      --collation-server=utf8mb4_unicode_ci
+      - umkm_pg_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-pumkm_root_2026"]
+      test: ["CMD-SHELL", "pg_isready -U umkm_app -d umkm_ngadirejo"]
       interval: 10s
       timeout: 5s
       retries: 5
-      start_period: 30s
+      start_period: 10s
 
 volumes:
-  umkm_mysql_data:
+  umkm_pg_data:
     driver: local

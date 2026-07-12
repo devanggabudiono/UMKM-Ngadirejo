@@ -1,10 +1,10 @@
-import pool, { DatabaseError } from '@/lib/db';
-import type { UmkmRow, OperasionalRow, ImageRow, Umkm, UmkmListItem, JamOperasional, JamHarian, UmkmStats } from '@/types/umkm';
-import { RowDataPacket } from 'mysql2/promise';
+import prisma from '@/lib/prisma';
+import type { Umkm, UmkmListItem, JamOperasional, JamHarian, UmkmStats, HariType } from '@/types/umkm';
+import type { Operasional, Image as PrismaImage } from '@prisma/client';
 
 // =============================================
-// UMKM Repository — All database queries
-// No SQL should exist outside this file.
+// UMKM Repository — All database queries via Prisma
+// No raw SQL should exist outside this file.
 //
 // Every public method:
 // - Wraps queries in try/catch
@@ -33,22 +33,21 @@ const DEFAULT_STATS: UmkmStats = { totalUmkm: 0, totalKategori: 0 };
 // --- Helper: Structured error logging ---
 
 function logQueryError(functionName: string, error: unknown): void {
-  const details = error instanceof DatabaseError
-    ? { code: error.code, host: error.host, port: error.port, retryable: error.isRetryable, message: error.message }
-    : { message: error instanceof Error ? error.message : String(error) };
-
-  console.error(`[UmkmRepository.${functionName}] ❌ Query failed:`, details);
+  console.error(
+    `[UmkmRepository.${functionName}] ❌ Query failed:`,
+    error instanceof Error ? error.message : String(error)
+  );
 }
 
 // --- Helper: Build JamOperasional from operasional rows ---
 
-function buildJamOperasional(rows: OperasionalRow[]): JamOperasional {
+function buildJamOperasional(rows: Operasional[]): JamOperasional {
   const jam = { ...DEFAULT_JAM_OPERASIONAL };
   for (const row of rows) {
-    jam[row.hari] = {
+    jam[row.hari as HariType] = {
       buka: row.buka || '00:00',
       tutup: row.tutup || '00:00',
-      libur: Boolean(row.libur),
+      libur: row.libur,
     };
   }
   return jam;
@@ -56,10 +55,10 @@ function buildJamOperasional(rows: OperasionalRow[]): JamOperasional {
 
 // --- Helper: Parse produk JSON safely ---
 
-function parseProduk(produkJson: string | null): string[] {
+function parseProduk(produkJson: unknown): string[] {
   if (!produkJson) return [];
   try {
-    const parsed = JSON.parse(produkJson);
+    const parsed = typeof produkJson === 'string' ? JSON.parse(produkJson) : produkJson;
     return Array.isArray(parsed) ? parsed : [];
   } catch {
     return [];
@@ -68,19 +67,19 @@ function parseProduk(produkJson: string | null): string[] {
 
 // --- Helper: Get cover image path ---
 
-function getCoverImage(images: ImageRow[]): string {
-  const cover = images.find(img => Boolean(img.is_cover));
-  if (cover) return `/uploads/umkm/${cover.image_path}`;
-  if (images.length > 0) return `/uploads/umkm/${images[0].image_path}`;
+function getCoverImage(images: PrismaImage[]): string {
+  const cover = images.find(img => img.isCover);
+  if (cover) return `/uploads/umkm/${cover.imagePath}`;
+  if (images.length > 0) return `/uploads/umkm/${images[0].imagePath}`;
   return DEFAULT_COVER;
 }
 
 // --- Helper: Get gallery image paths ---
 
-function getGaleri(images: ImageRow[]): string[] {
+function getGaleri(images: PrismaImage[]): string[] {
   return images
-    .sort((a, b) => a.sort_order - b.sort_order)
-    .map(img => `/uploads/umkm/${img.image_path}`);
+    .sort((a, b) => a.sortOrder - b.sortOrder)
+    .map(img => `/uploads/umkm/${img.imagePath}`);
 }
 
 // =============================================
@@ -93,37 +92,16 @@ function getGaleri(images: ImageRow[]): string[] {
  */
 export async function getAllUmkm(): Promise<UmkmListItem[]> {
   try {
-    const [umkmRows] = await pool.query<(UmkmRow & RowDataPacket)[]>(
-      'SELECT * FROM umkm ORDER BY nama ASC'
-    );
-
-    if (umkmRows.length === 0) return [];
-
-    const umkmIds = umkmRows.map(u => u.id);
-
-    // Batch fetch operasional, tags, images for all UMKMs
-    const [opRows] = await pool.query<(OperasionalRow & RowDataPacket)[]>(
-      'SELECT * FROM operasional WHERE umkm_id IN (?)',
-      [umkmIds]
-    );
-
-    const [tagRows] = await pool.query<(RowDataPacket)[]>(
-      `SELECT ut.umkm_id, t.nama 
-       FROM umkm_tags ut 
-       JOIN tags t ON ut.tag_id = t.id 
-       WHERE ut.umkm_id IN (?)`,
-      [umkmIds]
-    );
-
-    const [imgRows] = await pool.query<(ImageRow & RowDataPacket)[]>(
-      'SELECT * FROM images WHERE umkm_id IN (?) ORDER BY sort_order ASC',
-      [umkmIds]
-    );
-
-    // Group by umkm_id
-    const opByUmkm = groupBy(opRows, 'umkm_id');
-    const tagsByUmkm = groupBy(tagRows, 'umkm_id');
-    const imgsByUmkm = groupBy(imgRows, 'umkm_id');
+    const umkmRows = await prisma.umkm.findMany({
+      orderBy: { nama: 'asc' },
+      include: {
+        operasional: true,
+        images: { orderBy: { sortOrder: 'asc' } },
+        tags: {
+          include: { tag: true },
+        },
+      },
+    });
 
     return umkmRows.map(row => ({
       id: row.id,
@@ -131,14 +109,14 @@ export async function getAllUmkm(): Promise<UmkmListItem[]> {
       nama: row.nama,
       pemilik: row.pemilik || '',
       kategori: row.kategori,
-      deskripsiSingkat: row.deskripsi_singkat || '',
-      tags: (tagsByUmkm[row.id] || []).map((t: RowDataPacket) => t.nama),
+      deskripsiSingkat: row.deskripsiSingkat || '',
+      tags: row.tags.map(t => t.tag.nama),
       whatsapp: row.whatsapp || '',
       alamat: row.alamat || '',
       latitude: row.latitude ? Number(row.latitude) : 0,
       longitude: row.longitude ? Number(row.longitude) : 0,
-      fotoUtama: getCoverImage(imgsByUmkm[row.id] || []),
-      jamOperasional: buildJamOperasional(opByUmkm[row.id] || []),
+      fotoUtama: getCoverImage(row.images),
+      jamOperasional: buildJamOperasional(row.operasional),
     }));
   } catch (error) {
     logQueryError('getAllUmkm', error);
@@ -152,33 +130,18 @@ export async function getAllUmkm(): Promise<UmkmListItem[]> {
  */
 export async function getUmkmBySlug(slug: string): Promise<Umkm | null> {
   try {
-    const [rows] = await pool.query<(UmkmRow & RowDataPacket)[]>(
-      'SELECT * FROM umkm WHERE slug = ? LIMIT 1',
-      [slug]
-    );
+    const row = await prisma.umkm.findUnique({
+      where: { slug },
+      include: {
+        operasional: true,
+        images: { orderBy: { sortOrder: 'asc' } },
+        tags: {
+          include: { tag: true },
+        },
+      },
+    });
 
-    if (rows.length === 0) return null;
-
-    const row = rows[0];
-
-    // Fetch related data
-    const [opRows] = await pool.query<(OperasionalRow & RowDataPacket)[]>(
-      'SELECT * FROM operasional WHERE umkm_id = ?',
-      [row.id]
-    );
-
-    const [tagRows] = await pool.query<(RowDataPacket)[]>(
-      `SELECT t.nama 
-       FROM umkm_tags ut 
-       JOIN tags t ON ut.tag_id = t.id 
-       WHERE ut.umkm_id = ?`,
-      [row.id]
-    );
-
-    const [imgRows] = await pool.query<(ImageRow & RowDataPacket)[]>(
-      'SELECT * FROM images WHERE umkm_id = ? ORDER BY sort_order ASC',
-      [row.id]
-    );
+    if (!row) return null;
 
     return {
       id: row.id,
@@ -186,18 +149,18 @@ export async function getUmkmBySlug(slug: string): Promise<Umkm | null> {
       nama: row.nama,
       pemilik: row.pemilik || '',
       kategori: row.kategori,
-      deskripsiSingkat: row.deskripsi_singkat || '',
-      deskripsiLengkap: row.deskripsi_lengkap || '',
+      deskripsiSingkat: row.deskripsiSingkat || '',
+      deskripsiLengkap: row.deskripsiLengkap || '',
       produk: parseProduk(row.produk),
-      tags: tagRows.map(t => t.nama),
+      tags: row.tags.map(t => t.tag.nama),
       whatsapp: row.whatsapp || '',
       alamat: row.alamat || '',
-      jamOperasional: buildJamOperasional(opRows),
+      jamOperasional: buildJamOperasional(row.operasional),
       latitude: row.latitude ? Number(row.latitude) : 0,
       longitude: row.longitude ? Number(row.longitude) : 0,
-      googleMapsUrl: row.google_maps || '',
-      fotoUtama: getCoverImage(imgRows),
-      galeri: getGaleri(imgRows),
+      googleMapsUrl: row.googleMaps || '',
+      fotoUtama: getCoverImage(row.images),
+      galeri: getGaleri(row.images),
     };
   } catch (error) {
     logQueryError('getUmkmBySlug', error);
@@ -211,12 +174,17 @@ export async function getUmkmBySlug(slug: string): Promise<Umkm | null> {
  */
 export async function getUmkmStats(): Promise<UmkmStats> {
   try {
-    const [rows] = await pool.query<RowDataPacket[]>(
-      'SELECT COUNT(*) as total, COUNT(DISTINCT kategori) as kategori FROM umkm'
-    );
+    const [totalUmkm, kategoriRows] = await Promise.all([
+      prisma.umkm.count(),
+      prisma.umkm.findMany({
+        distinct: ['kategori'],
+        select: { kategori: true },
+      }),
+    ]);
+
     return {
-      totalUmkm: rows[0]?.total || 0,
-      totalKategori: rows[0]?.kategori || 0,
+      totalUmkm,
+      totalKategori: kategoriRows.length,
     };
   } catch (error) {
     logQueryError('getUmkmStats', error);
@@ -230,9 +198,11 @@ export async function getUmkmStats(): Promise<UmkmStats> {
  */
 export async function getKategoriList(): Promise<string[]> {
   try {
-    const [rows] = await pool.query<RowDataPacket[]>(
-      'SELECT DISTINCT kategori FROM umkm ORDER BY kategori ASC'
-    );
+    const rows = await prisma.umkm.findMany({
+      distinct: ['kategori'],
+      select: { kategori: true },
+      orderBy: { kategori: 'asc' },
+    });
     return rows.map(r => r.kategori);
   } catch (error) {
     logQueryError('getKategoriList', error);
@@ -246,9 +216,10 @@ export async function getKategoriList(): Promise<string[]> {
  */
 export async function getAllSlugs(): Promise<string[]> {
   try {
-    const [rows] = await pool.query<RowDataPacket[]>(
-      'SELECT slug FROM umkm ORDER BY slug ASC'
-    );
+    const rows = await prisma.umkm.findMany({
+      select: { slug: true },
+      orderBy: { slug: 'asc' },
+    });
     return rows.map(r => r.slug);
   } catch (error) {
     logQueryError('getAllSlugs', error);
@@ -256,13 +227,126 @@ export async function getAllSlugs(): Promise<string[]> {
   }
 }
 
-// --- Utility ---
+/**
+ * Search UMKM by name, description, or category
+ * Returns empty array on database failure.
+ */
+export async function searchUmkm(query: string): Promise<UmkmListItem[]> {
+  try {
+    const umkmRows = await prisma.umkm.findMany({
+      where: {
+        OR: [
+          { nama: { contains: query, mode: 'insensitive' } },
+          { deskripsiSingkat: { contains: query, mode: 'insensitive' } },
+          { deskripsiLengkap: { contains: query, mode: 'insensitive' } },
+          { kategori: { contains: query, mode: 'insensitive' } },
+          { pemilik: { contains: query, mode: 'insensitive' } },
+        ],
+      },
+      orderBy: { nama: 'asc' },
+      include: {
+        operasional: true,
+        images: { orderBy: { sortOrder: 'asc' } },
+        tags: { include: { tag: true } },
+      },
+    });
 
-function groupBy<T extends Record<string, unknown>>(arr: T[], key: string): Record<number, T[]> {
-  return arr.reduce((acc, item) => {
-    const k = item[key] as number;
-    if (!acc[k]) acc[k] = [];
-    acc[k].push(item);
-    return acc;
-  }, {} as Record<number, T[]>);
+    return umkmRows.map(row => ({
+      id: row.id,
+      slug: row.slug,
+      nama: row.nama,
+      pemilik: row.pemilik || '',
+      kategori: row.kategori,
+      deskripsiSingkat: row.deskripsiSingkat || '',
+      tags: row.tags.map(t => t.tag.nama),
+      whatsapp: row.whatsapp || '',
+      alamat: row.alamat || '',
+      latitude: row.latitude ? Number(row.latitude) : 0,
+      longitude: row.longitude ? Number(row.longitude) : 0,
+      fotoUtama: getCoverImage(row.images),
+      jamOperasional: buildJamOperasional(row.operasional),
+    }));
+  } catch (error) {
+    logQueryError('searchUmkm', error);
+    return [];
+  }
+}
+
+/**
+ * Get UMKM by category
+ * Returns empty array on database failure.
+ */
+export async function getByCategory(kategori: string): Promise<UmkmListItem[]> {
+  try {
+    const umkmRows = await prisma.umkm.findMany({
+      where: { kategori },
+      orderBy: { nama: 'asc' },
+      include: {
+        operasional: true,
+        images: { orderBy: { sortOrder: 'asc' } },
+        tags: { include: { tag: true } },
+      },
+    });
+
+    return umkmRows.map(row => ({
+      id: row.id,
+      slug: row.slug,
+      nama: row.nama,
+      pemilik: row.pemilik || '',
+      kategori: row.kategori,
+      deskripsiSingkat: row.deskripsiSingkat || '',
+      tags: row.tags.map(t => t.tag.nama),
+      whatsapp: row.whatsapp || '',
+      alamat: row.alamat || '',
+      latitude: row.latitude ? Number(row.latitude) : 0,
+      longitude: row.longitude ? Number(row.longitude) : 0,
+      fotoUtama: getCoverImage(row.images),
+      jamOperasional: buildJamOperasional(row.operasional),
+    }));
+  } catch (error) {
+    logQueryError('getByCategory', error);
+    return [];
+  }
+}
+
+/**
+ * Get single UMKM by ID (full detail)
+ * Returns null on database failure.
+ */
+export async function getUmkmById(id: number): Promise<Umkm | null> {
+  try {
+    const row = await prisma.umkm.findUnique({
+      where: { id },
+      include: {
+        operasional: true,
+        images: { orderBy: { sortOrder: 'asc' } },
+        tags: { include: { tag: true } },
+      },
+    });
+
+    if (!row) return null;
+
+    return {
+      id: row.id,
+      slug: row.slug,
+      nama: row.nama,
+      pemilik: row.pemilik || '',
+      kategori: row.kategori,
+      deskripsiSingkat: row.deskripsiSingkat || '',
+      deskripsiLengkap: row.deskripsiLengkap || '',
+      produk: parseProduk(row.produk),
+      tags: row.tags.map(t => t.tag.nama),
+      whatsapp: row.whatsapp || '',
+      alamat: row.alamat || '',
+      jamOperasional: buildJamOperasional(row.operasional),
+      latitude: row.latitude ? Number(row.latitude) : 0,
+      longitude: row.longitude ? Number(row.longitude) : 0,
+      googleMapsUrl: row.googleMaps || '',
+      fotoUtama: getCoverImage(row.images),
+      galeri: getGaleri(row.images),
+    };
+  } catch (error) {
+    logQueryError('getUmkmById', error);
+    return null;
+  }
 }

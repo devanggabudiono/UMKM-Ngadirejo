@@ -75,3 +75,98 @@ Komponen kartu UMKM [src/components/UmkmCard.tsx](file:///home/devangga/git-repo
 2. **Limit Deskripsi**: Deskripsi dibatasi maksimal 2 baris menggunakan class Tailwind `line-clamp-2`.
 3. **Limit Judul**: Judul dibatasi maksimal 1 baris menggunakan class Tailwind `line-clamp-1`.
 4. **Fallback Image**: Jika pelaku UMKM tidak mengisi `fotoUtama` (nilainya kosong `""` atau `null`), sistem secara otomatis akan menggunakan gambar pasar modern bernuansa hangat dari Unsplash sebagai fallback agar kartu tetap terlihat profesional dan tidak rusak/broken.
+
+---
+
+## 5. Development Lokal (Docker)
+
+### Prasyarat
+- Docker & Docker Compose
+- Node.js 18+
+
+### Setup
+```bash
+# 1. Start MySQL
+docker-compose up -d
+
+# 2. Install dependencies
+npm install
+
+# 3. Copy environment file
+cp .env.example .env.local
+
+# 4. Seed database (jalankan sekali)
+npx tsx src/lib/seed.ts
+
+# 5. Start dev server
+npm run dev
+```
+
+---
+
+## 6. Deploy ke Vercel (Cloud MySQL)
+
+### Langkah 1: Buat Cloud MySQL Database
+
+Pilih salah satu provider (semua punya free tier):
+
+| Provider | Signup URL |
+|---|---|
+| Railway | https://railway.app → New Project → MySQL |
+| TiDB Cloud | https://tidbcloud.com → Serverless Cluster |
+| Aiven | https://aiven.io → MySQL Service |
+
+Setelah buat database, Anda akan mendapat **connection string** seperti:
+```
+mysql://username:password@hostname:port/database_name
+```
+
+### Langkah 2: Migrasi Data ke Cloud
+
+```bash
+# Set connection string dan jalankan migration
+DATABASE_URL="mysql://user:pass@host:port/dbname?ssl-mode=REQUIRED" npx tsx src/lib/migrate-cloud.ts
+```
+
+Script ini otomatis membuat tabel dan mengisi 73 data UMKM.
+
+### Langkah 3: Deploy ke Vercel
+
+```bash
+# 1. Install Vercel CLI (jika belum)
+npm i -g vercel
+
+# 2. Login
+vercel login
+
+# 3. Deploy
+vercel
+```
+
+### Langkah 4: Set Environment Variables di Vercel
+
+Buka **Vercel Dashboard → Project → Settings → Environment Variables**, lalu tambahkan:
+
+| Variable | Value | Environment |
+|---|---|---|
+| `DATABASE_URL` | `mysql://user:pass@host:port/dbname?ssl-mode=REQUIRED` | Production, Preview |
+| `NEXT_PUBLIC_BASE_URL` | `https://your-domain.vercel.app` | Production |
+
+Lalu redeploy:
+```bash
+vercel --prod
+```
+
+### Environment Variables
+
+Lihat `.env.example` untuk daftar lengkap variabel yang diperlukan.
+
+| Variable | Deskripsi | Wajib |
+|---|---|---|
+| `DATABASE_URL` | Connection string MySQL (cloud) | ✅ untuk Vercel |
+| `DATABASE_HOST` | MySQL host (lokal) | ✅ untuk dev lokal |
+| `DATABASE_PORT` | MySQL port (default: 3306) | opsional |
+| `DATABASE_USER` | MySQL username | ✅ untuk dev lokal |
+| `DATABASE_PASSWORD` | MySQL password | ✅ untuk dev lokal |
+| `DATABASE_NAME` | Nama database | ✅ untuk dev lokal |
+| `NEXT_PUBLIC_BASE_URL` | URL website | opsional |
