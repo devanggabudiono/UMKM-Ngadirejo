@@ -1,156 +1,128 @@
-/* eslint-disable react-hooks/set-state-in-effect */
 "use client";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { MessageCircle, MapPin } from "lucide-react";
-import { isUmkmOpen } from "@/utils/umkmUtils";
-import type { JamOperasional } from "@/types/umkm";
+import { MessageCircle, MapPin, Clock } from "lucide-react";
+import { formatWhatsApp, parseOpenStatus } from "@/utils/umkmUtils";
+import { getCoverImage } from "@/utils/imageUtils";
 
 interface UmkmCardProps {
+  no: number;
   slug: string;
-  nama: string;
-  kategori: string;
-  deskripsiSingkat: string;
-  tags: string[];
-  fotoUtama: string;
-  whatsapp: string;
+  nama_umkm: string;
+  jenis_umkm: string;
+  profil_umkm: string;
+  kontak: string | null;
+  jam_operasional: string | null;
   distance?: number;
-  jamOperasional?: JamOperasional;
 }
 
 export default function UmkmCard({
+  no,
   slug,
-  nama,
-  kategori,
-  deskripsiSingkat,
-  tags,
-  fotoUtama,
-  whatsapp,
+  nama_umkm,
+  jenis_umkm,
+  profil_umkm,
+  kontak,
+  jam_operasional,
   distance,
-  jamOperasional,
 }: UmkmCardProps) {
-  // Format WhatsApp number to ensure it starts with 62 instead of 0
-  const formatWhatsApp = (wa: string) => {
-    let formatted = wa.replace(/\D/g, "");
-    if (formatted.startsWith("0")) {
-      formatted = "62" + formatted.substring(1);
-    }
-    return formatted;
-  };
-
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  const waNumber = whatsapp ? formatWhatsApp(whatsapp) : "";
+  const waNumber = formatWhatsApp(kontak);
   const waUrl = waNumber
-    ? `https://wa.me/${waNumber}?text=Halo%20${encodeURIComponent(nama)},%20saya%20melihat%20usaha%20Anda%20di%20Website%20UMKM%20Desa%20Ngadirejo.`
+    ? `https://wa.me/${waNumber}?text=Halo%20${encodeURIComponent(nama_umkm)},%20saya%20melihat%20usaha%20Anda%20di%20Website%20UMKM%20Desa%20Ngadirejo.`
     : "";
 
-  const isOpen = mounted && jamOperasional ? isUmkmOpen(jamOperasional) : false;
+  const coverSrc = getCoverImage(no);
+  const [imgError, setImgError] = useState(false);
+  const displaySrc = imgError ? "/images/placeholder.webp" : coverSrc;
 
-  // Fallback image
-  const defaultImage = "/uploads/umkm/default-cover.webp";
-  const imageSrc = fotoUtama && fotoUtama !== defaultImage ? fotoUtama : defaultImage;
-  const hasImage = fotoUtama && fotoUtama !== defaultImage;
+  const openStatus = parseOpenStatus(jam_operasional);
+
+  const statusDotColor =
+    openStatus.status === "OPEN"
+      ? "bg-emerald-500"
+      : openStatus.status === "CLOSED"
+        ? "bg-rose-500"
+        : "bg-slate-400";
+
+  const statusBadgeBg =
+    openStatus.status === "OPEN"
+      ? "bg-emerald-500/90 text-white border-emerald-400/20"
+      : openStatus.status === "CLOSED"
+        ? "bg-rose-500/90 text-white border-rose-400/20"
+        : "bg-slate-500/80 text-white border-slate-400/20";
+
+  const statusText =
+    openStatus.status === "OPEN"
+      ? "Buka"
+      : openStatus.status === "CLOSED"
+        ? "Tutup"
+        : "";
 
   return (
     <div className="bg-white rounded-3xl shadow-sm hover:shadow-xl hover:-translate-y-1.5 transition-all duration-300 overflow-hidden border border-slate-100 flex flex-col h-full group">
       {/* Thumbnail Area */}
-      <div className="relative h-52 w-full overflow-hidden bg-gradient-to-br from-emerald-100 to-emerald-200">
-        {hasImage ? (
-          <Image
-            src={imageSrc}
-            alt={nama}
-            fill
-            className="object-cover transition-transform duration-700 group-hover:scale-105"
-            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 25vw"
-            priority={false}
-          />
-        ) : (
-          <div className="absolute inset-0 flex items-center justify-center">
-            <span className="text-4xl font-black text-emerald-600/30">{nama.charAt(0)}</span>
-          </div>
-        )}
+      <div className="relative h-44 w-full overflow-hidden bg-slate-100">
+        <Image
+          src={displaySrc}
+          alt={nama_umkm}
+          fill
+          sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
+          className="object-cover transition-transform duration-500 group-hover:scale-105"
+          onError={() => setImgError(true)}
+        />
         <div className="absolute inset-0 bg-gradient-to-t from-slate-950/20 via-transparent to-transparent"></div>
-        
+
         {/* Category Badge */}
-        <div className="absolute top-4 left-4">
+        <div className="absolute top-3 left-3">
           <span className="bg-white/95 backdrop-blur-sm text-emerald-800 text-[10px] sm:text-xs font-extrabold px-3 py-1.5 rounded-full shadow-sm tracking-wide uppercase border border-slate-100/30">
-            {kategori}
+            {jenis_umkm}
           </span>
         </div>
 
-        {/* Status Buka/Tutup Badge */}
-        {mounted && jamOperasional && (
-          <div className="absolute top-4 right-4">
-            {isOpen ? (
-              <span className="bg-emerald-500/90 backdrop-blur-sm text-white text-[10px] sm:text-xs font-bold px-3 py-1.5 rounded-full shadow-sm flex items-center gap-1.5 border border-emerald-400/20">
-                <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse"></span>
-                Buka
-              </span>
-            ) : (
-              <span className="bg-rose-500/90 backdrop-blur-sm text-white text-[10px] sm:text-xs font-bold px-3 py-1.5 rounded-full shadow-sm flex items-center gap-1.5 border border-rose-400/20">
-                <span className="w-1.5 h-1.5 rounded-full bg-white/60"></span>
-                Tutup
-              </span>
-            )}
+        {/* Open/Closed Status Badge */}
+        {statusText && (
+          <div className="absolute top-3 right-3">
+            <span className={`backdrop-blur-sm text-[10px] sm:text-xs font-bold px-3 py-1.5 rounded-full shadow-sm flex items-center gap-1.5 border ${statusBadgeBg}`}>
+              <span className={`w-1.5 h-1.5 rounded-full ${statusDotColor} ${openStatus.status === "OPEN" ? "animate-pulse" : ""}`}></span>
+              {statusText}
+            </span>
+          </div>
+        )}
+
+        {/* Jam Operasional - bottom right */}
+        {jam_operasional && (
+          <div className="absolute bottom-3 right-3">
+            <span className="bg-black/50 backdrop-blur-sm text-white text-[9px] sm:text-[10px] font-semibold px-2.5 py-1 rounded-lg flex items-center gap-1 border border-white/10">
+              <Clock className="w-2.5 h-2.5" />
+              {jam_operasional.length > 20 ? jam_operasional.substring(0, 18) + '…' : jam_operasional}
+            </span>
           </div>
         )}
       </div>
-      
+
       {/* Content Area */}
       <div className="p-6 flex-1 flex flex-col">
-        {/* Title */}
         <h3 className="text-base sm:text-lg font-bold text-slate-900 mb-2 line-clamp-1 group-hover:text-emerald-700 transition-colors">
-          {nama}
+          {nama_umkm}
         </h3>
-        
-        {/* Description */}
         <p className="text-slate-500 text-xs sm:text-sm mb-4 line-clamp-2 leading-relaxed flex-grow">
-          {deskripsiSingkat}
+          {profil_umkm}
         </p>
 
-        {/* Distance Info */}
         {distance !== undefined && (
           <div className="flex items-center gap-1.5 text-slate-600 text-xs mb-4 font-semibold bg-emerald-50/50 border border-emerald-100/60 p-2.5 rounded-xl w-fit">
             <MapPin className="w-3.5 h-3.5 text-emerald-600 flex-shrink-0 animate-bounce" />
             <span>{distance.toFixed(1)} km dari Anda</span>
           </div>
         )}
-        
-        {/* Tag List */}
-        <div className="flex flex-wrap gap-1.5 mb-6">
-          {tags.slice(0, 3).map((tag, idx) => (
-            <span key={idx} className="bg-slate-50 text-slate-500 text-[10px] px-2.5 py-1 rounded-lg font-semibold border border-slate-100">
-              #{tag}
-            </span>
-          ))}
-          {tags.length > 3 && (
-            <span className="bg-slate-50 text-slate-400 text-[10px] px-2 py-0.5 rounded-lg font-semibold">
-              +{tags.length - 3}
-            </span>
-          )}
-        </div>
-        
-        {/* Action Buttons */}
+
         <div className="grid grid-cols-2 gap-2 mt-auto">
-          <Link
-            href={`/umkm/${slug}`}
-            className="text-center bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold py-3 px-4 rounded-xl transition-all shadow-sm hover:shadow-md"
-          >
+          <Link href={`/umkm/${slug}`} className="text-center bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold py-3 px-4 rounded-xl transition-all shadow-sm hover:shadow-md">
             Lihat Detail
           </Link>
           {waUrl ? (
-            <a
-              href={waUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center justify-center gap-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs font-bold py-3 px-4 rounded-xl transition-all border border-emerald-100"
-            >
+            <a href={waUrl} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center gap-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs font-bold py-3 px-4 rounded-xl transition-all border border-emerald-100">
               <MessageCircle className="w-4 h-4" />
               <span>WhatsApp</span>
             </a>

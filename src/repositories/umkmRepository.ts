@@ -1,352 +1,112 @@
-import prisma from '@/lib/prisma';
-import type { Umkm, UmkmListItem, JamOperasional, JamHarian, UmkmStats, HariType } from '@/types/umkm';
-import type { Operasional, Image as PrismaImage } from '@prisma/client';
+import type { RawUmkm, Umkm, UmkmListItem, UmkmStats } from '@/types/umkm';
+import rawData from '@/data/umkm.json';
 
 // =============================================
-// UMKM Repository — All database queries via Prisma
-// No raw SQL should exist outside this file.
+// UMKM Repository — Static JSON, no database
 //
-// Every public method:
-// - Wraps queries in try/catch
-// - Logs errors with function name context
-// - Returns graceful fallbacks (empty array / null / default)
-// - Never crashes the Next.js process
+// Reads from /data/umkm.json at import time.
+// All methods are synchronous.
 // =============================================
 
-/** Default operational schedule when none is found */
-const DEFAULT_JAM_HARIAN: JamHarian = { buka: '00:00', tutup: '00:00', libur: true };
+// --- Slug Generator ---
 
-const DEFAULT_JAM_OPERASIONAL: JamOperasional = {
-  senin: DEFAULT_JAM_HARIAN,
-  selasa: DEFAULT_JAM_HARIAN,
-  rabu: DEFAULT_JAM_HARIAN,
-  kamis: DEFAULT_JAM_HARIAN,
-  jumat: DEFAULT_JAM_HARIAN,
-  sabtu: DEFAULT_JAM_HARIAN,
-  minggu: DEFAULT_JAM_HARIAN,
-};
-
-const DEFAULT_COVER = '/uploads/umkm/default-cover.webp';
-
-const DEFAULT_STATS: UmkmStats = { totalUmkm: 0, totalKategori: 0 };
-
-// --- Helper: Structured error logging ---
-
-function logQueryError(functionName: string, error: unknown): void {
-  console.error(
-    `[UmkmRepository.${functionName}] ❌ Query failed:`,
-    error instanceof Error ? error.message : String(error)
-  );
+function generateSlug(nama: string): string {
+  return nama
+    .toLowerCase()
+    .replace(/[&]/g, 'dan')
+    .replace(/[^a-z0-9\s-]/g, '')
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '')
+    .substring(0, 200);
 }
 
-// --- Helper: Build JamOperasional from operasional rows ---
+// --- Build data once at import time ---
 
-function buildJamOperasional(rows: Operasional[]): JamOperasional {
-  const jam = { ...DEFAULT_JAM_OPERASIONAL };
-  for (const row of rows) {
-    jam[row.hari as HariType] = {
-      buka: row.buka || '00:00',
-      tutup: row.tutup || '00:00',
-      libur: row.libur,
-    };
-  }
-  return jam;
+const allUmkm: Umkm[] = (rawData as RawUmkm[]).map((raw) => {
+  const slug = generateSlug(raw.nama_umkm);
+  return { ...raw, slug };
+});
+
+// Deduplicate slugs
+const slugCount = new Map<string, number>();
+for (const u of allUmkm) {
+  const count = slugCount.get(u.slug) || 0;
+  if (count > 0) u.slug = `${u.slug}-${count}`;
+  slugCount.set(u.slug.replace(/-\d+$/, ''), count + 1);
 }
 
-// --- Helper: Parse produk JSON safely ---
-
-function parseProduk(produkJson: unknown): string[] {
-  if (!produkJson) return [];
-  try {
-    const parsed = typeof produkJson === 'string' ? JSON.parse(produkJson) : produkJson;
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
-  }
-}
-
-// --- Helper: Get cover image path ---
-
-function getCoverImage(images: PrismaImage[]): string {
-  const cover = images.find(img => img.isCover);
-  if (cover) return `/uploads/umkm/${cover.imagePath}`;
-  if (images.length > 0) return `/uploads/umkm/${images[0].imagePath}`;
-  return DEFAULT_COVER;
-}
-
-// --- Helper: Get gallery image paths ---
-
-function getGaleri(images: PrismaImage[]): string[] {
-  return images
-    .sort((a, b) => a.sortOrder - b.sortOrder)
-    .map(img => `/uploads/umkm/${img.imagePath}`);
+function toListItem(u: Umkm): UmkmListItem {
+  return {
+    no: u.no,
+    slug: u.slug,
+    nama_umkm: u.nama_umkm,
+    profil_umkm: u.profil_umkm,
+    jenis_umkm: u.jenis_umkm,
+    nama_pemilik: u.nama_pemilik,
+    alamat: u.alamat,
+    latitude: u.latitude,
+    longitude: u.longitude,
+    kontak: u.kontak,
+    jam_operasional: u.jam_operasional,
+    image_folder: u.image_folder,
+  };
 }
 
 // =============================================
-// PUBLIC REPOSITORY METHODS
+// PUBLIC METHODS (all synchronous)
 // =============================================
 
-/**
- * Get all UMKM for listing page (lightweight query)
- * Returns empty array on database failure — page renders gracefully.
- */
-export async function getAllUmkm(): Promise<UmkmListItem[]> {
-  try {
-    const umkmRows = await prisma.umkm.findMany({
-      orderBy: { nama: 'asc' },
-      include: {
-        operasional: true,
-        images: { orderBy: { sortOrder: 'asc' } },
-        tags: {
-          include: { tag: true },
-        },
-      },
-    });
-
-    return umkmRows.map(row => ({
-      id: row.id,
-      slug: row.slug,
-      nama: row.nama,
-      pemilik: row.pemilik || '',
-      kategori: row.kategori,
-      deskripsiSingkat: row.deskripsiSingkat || '',
-      tags: row.tags.map(t => t.tag.nama),
-      whatsapp: row.whatsapp || '',
-      alamat: row.alamat || '',
-      latitude: row.latitude ? Number(row.latitude) : 0,
-      longitude: row.longitude ? Number(row.longitude) : 0,
-      fotoUtama: getCoverImage(row.images),
-      jamOperasional: buildJamOperasional(row.operasional),
-    }));
-  } catch (error) {
-    logQueryError('getAllUmkm', error);
-    return [];
-  }
+export function getAllUmkm(): UmkmListItem[] {
+  return allUmkm
+    .slice()
+    .sort((a, b) => a.nama_umkm.localeCompare(b.nama_umkm))
+    .map(toListItem);
 }
 
-/**
- * Get single UMKM by slug (full detail)
- * Returns null on database failure — detail page shows 404 gracefully.
- */
-export async function getUmkmBySlug(slug: string): Promise<Umkm | null> {
-  try {
-    const row = await prisma.umkm.findUnique({
-      where: { slug },
-      include: {
-        operasional: true,
-        images: { orderBy: { sortOrder: 'asc' } },
-        tags: {
-          include: { tag: true },
-        },
-      },
-    });
-
-    if (!row) return null;
-
-    return {
-      id: row.id,
-      slug: row.slug,
-      nama: row.nama,
-      pemilik: row.pemilik || '',
-      kategori: row.kategori,
-      deskripsiSingkat: row.deskripsiSingkat || '',
-      deskripsiLengkap: row.deskripsiLengkap || '',
-      produk: parseProduk(row.produk),
-      tags: row.tags.map(t => t.tag.nama),
-      whatsapp: row.whatsapp || '',
-      alamat: row.alamat || '',
-      jamOperasional: buildJamOperasional(row.operasional),
-      latitude: row.latitude ? Number(row.latitude) : 0,
-      longitude: row.longitude ? Number(row.longitude) : 0,
-      googleMapsUrl: row.googleMaps || '',
-      fotoUtama: getCoverImage(row.images),
-      galeri: getGaleri(row.images),
-    };
-  } catch (error) {
-    logQueryError('getUmkmBySlug', error);
-    return null;
-  }
+export function getUmkmBySlug(slug: string): Umkm | null {
+  return allUmkm.find((u) => u.slug === slug) ?? null;
 }
 
-/**
- * Get aggregated stats for hero section
- * Returns default zeros on database failure — hero section still renders.
- */
-export async function getUmkmStats(): Promise<UmkmStats> {
-  try {
-    const [totalUmkm, kategoriRows] = await Promise.all([
-      prisma.umkm.count(),
-      prisma.umkm.findMany({
-        distinct: ['kategori'],
-        select: { kategori: true },
-      }),
-    ]);
-
-    return {
-      totalUmkm,
-      totalKategori: kategoriRows.length,
-    };
-  } catch (error) {
-    logQueryError('getUmkmStats', error);
-    return DEFAULT_STATS;
-  }
+export function getUmkmById(no: number): Umkm | null {
+  return allUmkm.find((u) => u.no === no) ?? null;
 }
 
-/**
- * Get all distinct kategori
- * Returns empty array on database failure — filter renders without options.
- */
-export async function getKategoriList(): Promise<string[]> {
-  try {
-    const rows = await prisma.umkm.findMany({
-      distinct: ['kategori'],
-      select: { kategori: true },
-      orderBy: { kategori: 'asc' },
-    });
-    return rows.map(r => r.kategori);
-  } catch (error) {
-    logQueryError('getKategoriList', error);
-    return [];
-  }
+export function getUmkmStats(): UmkmStats {
+  const kategori = new Set(allUmkm.map((u) => u.jenis_umkm));
+  return { totalUmkm: allUmkm.length, totalKategori: kategori.size };
 }
 
-/**
- * Get all slugs (for sitemap or static paths)
- * Returns empty array on database failure.
- */
-export async function getAllSlugs(): Promise<string[]> {
-  try {
-    const rows = await prisma.umkm.findMany({
-      select: { slug: true },
-      orderBy: { slug: 'asc' },
-    });
-    return rows.map(r => r.slug);
-  } catch (error) {
-    logQueryError('getAllSlugs', error);
-    return [];
+export function getKategoriList(): string[] {
+  const set = new Set<string>();
+  for (const u of allUmkm) {
+    if (u.jenis_umkm && u.jenis_umkm.trim()) set.add(u.jenis_umkm.trim());
   }
+  return Array.from(set).sort();
 }
 
-/**
- * Search UMKM by name, description, or category
- * Returns empty array on database failure.
- */
-export async function searchUmkm(query: string): Promise<UmkmListItem[]> {
-  try {
-    const umkmRows = await prisma.umkm.findMany({
-      where: {
-        OR: [
-          { nama: { contains: query, mode: 'insensitive' } },
-          { deskripsiSingkat: { contains: query, mode: 'insensitive' } },
-          { deskripsiLengkap: { contains: query, mode: 'insensitive' } },
-          { kategori: { contains: query, mode: 'insensitive' } },
-          { pemilik: { contains: query, mode: 'insensitive' } },
-        ],
-      },
-      orderBy: { nama: 'asc' },
-      include: {
-        operasional: true,
-        images: { orderBy: { sortOrder: 'asc' } },
-        tags: { include: { tag: true } },
-      },
-    });
-
-    return umkmRows.map(row => ({
-      id: row.id,
-      slug: row.slug,
-      nama: row.nama,
-      pemilik: row.pemilik || '',
-      kategori: row.kategori,
-      deskripsiSingkat: row.deskripsiSingkat || '',
-      tags: row.tags.map(t => t.tag.nama),
-      whatsapp: row.whatsapp || '',
-      alamat: row.alamat || '',
-      latitude: row.latitude ? Number(row.latitude) : 0,
-      longitude: row.longitude ? Number(row.longitude) : 0,
-      fotoUtama: getCoverImage(row.images),
-      jamOperasional: buildJamOperasional(row.operasional),
-    }));
-  } catch (error) {
-    logQueryError('searchUmkm', error);
-    return [];
-  }
+export function getAllSlugs(): string[] {
+  return allUmkm.map((u) => u.slug).sort();
 }
 
-/**
- * Get UMKM by category
- * Returns empty array on database failure.
- */
-export async function getByCategory(kategori: string): Promise<UmkmListItem[]> {
-  try {
-    const umkmRows = await prisma.umkm.findMany({
-      where: { kategori },
-      orderBy: { nama: 'asc' },
-      include: {
-        operasional: true,
-        images: { orderBy: { sortOrder: 'asc' } },
-        tags: { include: { tag: true } },
-      },
-    });
-
-    return umkmRows.map(row => ({
-      id: row.id,
-      slug: row.slug,
-      nama: row.nama,
-      pemilik: row.pemilik || '',
-      kategori: row.kategori,
-      deskripsiSingkat: row.deskripsiSingkat || '',
-      tags: row.tags.map(t => t.tag.nama),
-      whatsapp: row.whatsapp || '',
-      alamat: row.alamat || '',
-      latitude: row.latitude ? Number(row.latitude) : 0,
-      longitude: row.longitude ? Number(row.longitude) : 0,
-      fotoUtama: getCoverImage(row.images),
-      jamOperasional: buildJamOperasional(row.operasional),
-    }));
-  } catch (error) {
-    logQueryError('getByCategory', error);
-    return [];
-  }
+export function searchUmkm(query: string): UmkmListItem[] {
+  const q = query.toLowerCase();
+  return allUmkm
+    .filter(
+      (u) =>
+        u.nama_umkm.toLowerCase().includes(q) ||
+        u.profil_umkm.toLowerCase().includes(q) ||
+        u.jenis_umkm.toLowerCase().includes(q) ||
+        (u.nama_pemilik?.toLowerCase().includes(q) ?? false) ||
+        (u.alamat?.toLowerCase().includes(q) ?? false)
+    )
+    .sort((a, b) => a.nama_umkm.localeCompare(b.nama_umkm))
+    .map(toListItem);
 }
 
-/**
- * Get single UMKM by ID (full detail)
- * Returns null on database failure.
- */
-export async function getUmkmById(id: number): Promise<Umkm | null> {
-  try {
-    const row = await prisma.umkm.findUnique({
-      where: { id },
-      include: {
-        operasional: true,
-        images: { orderBy: { sortOrder: 'asc' } },
-        tags: { include: { tag: true } },
-      },
-    });
-
-    if (!row) return null;
-
-    return {
-      id: row.id,
-      slug: row.slug,
-      nama: row.nama,
-      pemilik: row.pemilik || '',
-      kategori: row.kategori,
-      deskripsiSingkat: row.deskripsiSingkat || '',
-      deskripsiLengkap: row.deskripsiLengkap || '',
-      produk: parseProduk(row.produk),
-      tags: row.tags.map(t => t.tag.nama),
-      whatsapp: row.whatsapp || '',
-      alamat: row.alamat || '',
-      jamOperasional: buildJamOperasional(row.operasional),
-      latitude: row.latitude ? Number(row.latitude) : 0,
-      longitude: row.longitude ? Number(row.longitude) : 0,
-      googleMapsUrl: row.googleMaps || '',
-      fotoUtama: getCoverImage(row.images),
-      galeri: getGaleri(row.images),
-    };
-  } catch (error) {
-    logQueryError('getUmkmById', error);
-    return null;
-  }
+export function getByCategory(kategori: string): UmkmListItem[] {
+  return allUmkm
+    .filter((u) => u.jenis_umkm === kategori)
+    .sort((a, b) => a.nama_umkm.localeCompare(b.nama_umkm))
+    .map(toListItem);
 }
